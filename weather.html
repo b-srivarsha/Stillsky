@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="Stillsky — a calm, ambient weather app with live forecasts from Open-Meteo.">
+  <meta name="theme-color" content="#7aa3cc">
+  <title>Stillsky — Calm Weather</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-scene="partly-day">
+  <!-- Ambient background: gradient layers crossfade, clouds drift, canvas draws rain/snow -->
+  <div class="sky" aria-hidden="true">
+    <div class="sky__layer" data-scene="clear-day"></div>
+    <div class="sky__layer is-active" data-scene="partly-day"></div>
+    <div class="sky__layer" data-scene="clear-night"></div>
+    <div class="sky__layer" data-scene="cloudy"></div>
+    <div class="sky__layer" data-scene="fog"></div>
+    <div class="sky__layer" data-scene="rain"></div>
+    <div class="sky__layer" data-scene="storm"></div>
+    <div class="sky__layer" data-scene="snow"></div>
+
+    <div class="stars"></div>
+    <div class="glow glow--sun"></div>
+    <div class="glow glow--moon"></div>
+
+    <div class="clouds">
+      <div class="cloud" style="--w: 52vw; --top: 6%; --dur: 140s; --delay: -20s; --x: 10vw;"></div>
+      <div class="cloud" style="--w: 38vw; --top: 22%; --dur: 110s; --delay: -70s; --x: 60vw; --o: 0.8;"></div>
+      <div class="cloud" style="--w: 64vw; --top: 48%; --dur: 170s; --delay: -120s; --x: 30vw; --o: 0.6;"></div>
+      <div class="cloud" style="--w: 44vw; --top: 70%; --dur: 125s; --delay: -40s; --x: 70vw; --o: 0.5;"></div>
+      <div class="cloud" style="--w: 30vw; --top: 36%; --dur: 95s; --delay: -10s; --x: -5vw; --o: 0.7;"></div>
+    </div>
+
+    <canvas class="particles" id="particles"></canvas>
+    <div class="flash" id="flash"></div>
+  </div>
+
+  <div class="app">
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="Stillsky home">
+        <span class="brand__mark" aria-hidden="true"></span>
+        <span>Stillsky</span>
+      </a>
+
+      <form class="search" id="search-form" role="search">
+        <svg class="search__icon" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="11" cy="11" r="7"></circle>
+          <path d="m20 20-3.5-3.5"></path>
+        </svg>
+        <label for="city-input" class="sr-only">Search for a city</label>
+        <input id="city-input" type="search" name="city" placeholder="Search a city…" autocomplete="off" spellcheck="false" enterkeyhint="search">
+        <button type="button" class="icon-btn" id="locate-btn" aria-label="Use my current location" title="Use my current location">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 2v3M12 19v3M2 12h3M19 12h3"></path>
+            <circle cx="12" cy="12" r="6.5"></circle>
+            <circle cx="12" cy="12" r="2" class="fill"></circle>
+          </svg>
+        </button>
+      </form>
+
+      <div class="unit-toggle" role="group" aria-label="Temperature unit">
+        <button type="button" data-unit="celsius" aria-pressed="true">&deg;C</button>
+        <button type="button" data-unit="fahrenheit" aria-pressed="false">&deg;F</button>
+      </div>
+    </header>
+
+    <main class="main" id="main" aria-live="polite" aria-busy="false">
+      <section class="state glass" id="view-intro" hidden>
+        <div class="state__icon" data-icon="partly-day"></div>
+        <h1 class="state__title">Where are you today?</h1>
+        <p class="state__text">Search for a city above, or share your location for a local forecast.</p>
+        <div class="chips">
+          <button type="button" class="chip" data-city="Lisbon">Lisbon</button>
+          <button type="button" class="chip" data-city="Kyoto">Kyoto</button>
+          <button type="button" class="chip" data-city="Reykjavik">Reykjavik</button>
+          <button type="button" class="chip" data-city="Vancouver">Vancouver</button>
+        </div>
+      </section>
+
+      <section class="state glass" id="view-loading" hidden>
+        <div class="spinner" aria-hidden="true"></div>
+        <p class="state__title state__title--small" id="loading-text">Gathering the forecast…</p>
+        <p class="state__text state__text--faint" id="loading-hint">You can also search for a city above.</p>
+      </section>
+
+      <section class="state glass" id="view-error" hidden>
+        <div class="state__icon" data-icon="fog"></div>
+        <h1 class="state__title" id="error-title">Something went quiet</h1>
+        <p class="state__text" id="error-message">We couldn&apos;t load the weather right now.</p>
+        <div class="state__actions">
+          <button type="button" class="btn btn--primary" id="retry-btn">Try again</button>
+          <button type="button" class="btn btn--ghost" id="search-again-btn">Search another city</button>
+        </div>
+      </section>
+
+      <section class="weather" id="view-weather" hidden>
+        <article class="current glass" id="current-card">
+          <header class="current__place">
+            <h1 class="current__city" id="city-name">—</h1>
+            <p class="current__region" id="city-region"></p>
+            <p class="current__time" id="city-time"></p>
+          </header>
+
+          <div class="current__hero">
+            <div class="current__icon" id="current-icon"></div>
+            <p class="current__temp">
+              <span id="current-temp">--</span><span class="current__deg" aria-hidden="true">&deg;</span>
+              <span class="sr-only" id="current-unit-label">degrees</span>
+            </p>
+            <p class="current__condition" id="current-condition"></p>
+            <p class="current__range" id="current-range"></p>
+          </div>
+
+          <dl class="stats">
+            <div class="stat">
+              <dt>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5s-6 6.6-6 11a6 6 0 0 0 12 0c0-4.4-6-11-6-11Z"></path></svg>
+                Humidity
+              </dt>
+              <dd id="humidity">--</dd>
+            </div>
+            <div class="stat">
+              <dt>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8h11a3 3 0 1 0-3-3M3 12h16a3 3 0 1 1-3 3M3 16h7"></path></svg>
+                Wind
+              </dt>
+              <dd id="wind">--</dd>
+            </div>
+            <div class="stat">
+              <dt>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14.8V5a2 2 0 1 1 4 0v9.8a4 4 0 1 1-4 0Z"></path></svg>
+                Feels like
+              </dt>
+              <dd id="feels">--</dd>
+            </div>
+          </dl>
+        </article>
+
+        <section class="forecast" aria-labelledby="forecast-title">
+          <h2 class="forecast__title" id="forecast-title">5-day forecast</h2>
+          <ol class="forecast__list" id="forecast-list"></ol>
+        </section>
+      </section>
+    </main>
+
+    <footer class="footer">
+      Weather data by <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo</a>
+    </footer>
+  </div>
+
+  <script src="script.js" defer></script>
+</body>
+</html>
