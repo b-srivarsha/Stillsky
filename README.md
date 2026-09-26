@@ -1,5 +1,7 @@
 # Stillsky — Calm Weather
 
+<img width="1470" height="828" alt="Screenshot 2026-09-27 at 12 59 56 AM" src="https://github.com/user-attachments/assets/222f10d6-cddd-4fcf-b91b-081928b49438" />
+
 A peaceful, ambient weather app built with plain **HTML, CSS, and vanilla JavaScript**. It pulls live data from the free [Open-Meteo](https://open-meteo.com/) API, so you don't need an API key, an account, or a build step.
 
 ## Features
